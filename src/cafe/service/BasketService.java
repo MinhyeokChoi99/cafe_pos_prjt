@@ -2,45 +2,43 @@ package cafe.service;
 
 import cafe.model.BasketItem;
 import cafe.model.ProductDTO;
-
 import java.util.ArrayList;
 
-/**
- * 장바구니 관련 비즈니스 로직을 담당합니다.
- * - 아이템 추가 / 초기화
- * - 총액 계산
- */
 public class BasketService {
-    private final ArrayList<BasketItem> basketList = new ArrayList<>();
+    private final ArrayList<BasketItem> items = new ArrayList<>();
 
-    /** 장바구니에 상품 추가. 같은 메뉴+온도가 이미 있으면 수량만 증가. */
-    public void addItem(ProductDTO prod, String temperature, int quantity) {
-        for (BasketItem item : basketList) {
-            if (item.isSameMenu(prod.prodId, temperature)) {
-                item.quantity += quantity;
+    public ArrayList<BasketItem> getItems() {
+        return items;
+    }
+
+    // 🌟 파라미터에 options와 옵션가가 더해진 finalUnitPrice를 추가로 받습니다.
+    public void addItem(ProductDTO prod, String temperature, String options, int quantity, int finalUnitPrice) {
+        
+        // 1. 장바구니에 이미 '같은 메뉴 + 같은 온도 + 같은 옵션'이 담겨있는지 검사
+        for (BasketItem item : items) {
+            if (item.isSameMenu(prod.prodId, temperature, options)) {
+                item.quantity += quantity; // 수량만 누적
                 return;
             }
         }
-        basketList.add(new BasketItem(prod.prodId, prod.name, temperature, quantity, prod.price));
+
+        // 2. 새로운 옵션 조합이라면 새롭게 적재 (최종 단가 인입)
+        items.add(new BasketItem(prod.prodId, prod.name, temperature, options, quantity, finalUnitPrice));
     }
 
-    /** 장바구니 전체 비우기 */
     public void clear() {
-        basketList.clear();
+        items.clear();
     }
 
-    /** 장바구니가 비어있는지 확인 */
     public boolean isEmpty() {
-        return basketList.isEmpty();
+        return items.isEmpty();
     }
 
-    /** 장바구니 목록 반환 (읽기 전용 사본) */
-    public ArrayList<BasketItem> getItems() {
-        return new ArrayList<>(basketList);
-    }
-
-    /** 장바구니 전체 합계 계산 */
     public int calcTotal() {
-        return basketList.stream().mapToInt(BasketItem::getTotalPrice).sum();
+        int total = 0;
+        for (BasketItem item : items) {
+            total += item.getTotalPrice();
+        }
+        return total;
     }
 }

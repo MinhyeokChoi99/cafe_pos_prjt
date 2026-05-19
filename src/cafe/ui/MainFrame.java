@@ -137,51 +137,144 @@ public class MainFrame extends JFrame {
         menuPanel.repaint();
     }
 
+    
     // ── 주문 다이얼로그 ───────────────────────────────────────────────────
 
     private void showOrderDialog(ProductDTO prod) {
         JDialog dialog = new JDialog(this, prod.name + " 주문", true);
-        dialog.setSize(320, 260);
-        dialog.setLayout(new GridLayout(4, 1, 5, 5));
+        dialog.setSize(380, 340); // 정렬이 예쁘게 잡히도록 크기 조정
         dialog.setLocationRelativeTo(this);
+        
+        // 정렬이 무너지지 않도록 상하(Y축)로 패널을 쌓는 BoxLayout 채택
+        JPanel mainWrapper = new JPanel();
+        mainWrapper.setLayout(new BoxLayout(mainWrapper, BoxLayout.Y_AXIS));
+        mainWrapper.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        // 온도 선택
-        JPanel tempPanel = new JPanel();
+        // 1. 온도 선택 패널 (HOT / ICE)
+        JPanel tempPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JRadioButton rbHot = new JRadioButton("HOT");
         JRadioButton rbIce = new JRadioButton("ICE");
-        ButtonGroup group  = new ButtonGroup();
-        group.add(rbHot);
-        group.add(rbIce);
+        ButtonGroup tempGroup = new ButtonGroup();
+        tempGroup.add(rbHot);
+        tempGroup.add(rbIce);
 
         if      (prod.temperatureType == 1) { rbHot.setSelected(true);  rbIce.setEnabled(false); }
         else if (prod.temperatureType == 2) { rbIce.setSelected(true);  rbHot.setEnabled(false); }
         else                                { rbIce.setSelected(true); }
 
-        tempPanel.add(new JLabel("온도:"));
+        tempPanel.add(new JLabel("☕ 온도 선택:   "));
         tempPanel.add(rbHot);
         tempPanel.add(rbIce);
 
-        // 수량 선택
-        JPanel qtyPanel   = new JPanel();
+        // 2. 샷 조절 패널 (보통 / 연하게 / 샷추가) -> 라디오 버튼으로 택1
+        JPanel shotPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JRadioButton rbNormal  = new JRadioButton("보통");
+        JRadioButton rbLight   = new JRadioButton("연하게");
+        JRadioButton rbAddShot = new JRadioButton("샷추가(+700원)");
+        ButtonGroup shotGroup = new ButtonGroup();
+        shotGroup.add(rbNormal);
+        shotGroup.add(rbLight);
+        shotGroup.add(rbAddShot);
+        rbNormal.setSelected(true); // 기본값
+
+        shotPanel.add(new JLabel("🎯 샷 조절:     "));
+        shotPanel.add(rbNormal);
+        shotPanel.add(rbLight);
+        shotPanel.add(rbAddShot);
+
+        // 3. 디카페인 선택 패널 -> 체크박스로 독립적 선택 가능!
+        JPanel decafPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JCheckBox cbDecaf = new JCheckBox("디카페인으로 변경 (+1,500원)");
+        decafPanel.add(new JLabel("🌱 디카페인:   "));
+        decafPanel.add(cbDecaf);
+
+        // ❌ 커피 메뉴가 아니면 샷 조절 및 디카페인 옵션을 비활성화 처리
+        if (!prod.isCoffee) {
+            rbNormal.setEnabled(false);
+            rbLight.setEnabled(false);
+            rbAddShot.setEnabled(false);
+            cbDecaf.setEnabled(false);
+        }
+
+        // 4. 수량 선택 패널
+        JPanel qtyPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JSpinner qtySpinner = new JSpinner(new SpinnerNumberModel(1, 1, prod.stock, 1));
-        qtyPanel.add(new JLabel("수량:"));
+        qtyPanel.add(new JLabel("🛍️ 주문 수량:   "));
         qtyPanel.add(qtySpinner);
 
-        JLabel priceLabel  = new JLabel(String.format("단가: %,d원", prod.price), SwingConstants.CENTER);
+        // 5. 실시간 단가 표시 레이블
+        JLabel priceLabel = new JLabel(String.format("최종 단가: %,d원", prod.price), SwingConstants.CENTER);
+        priceLabel.setFont(new Font("맑은 고딕", Font.BOLD, 15));
+        priceLabel.setAlignmentX(Component.CENTER_ALIGNMENT); // 가운데 정렬
+
+        // 옵션이나 체크박스를 건드릴 때마다 금액을 실시간 계산해 주는 리스너
+        java.awt.event.ActionListener priceUpdater = e -> {
+            int currentPrice = prod.price;
+            if (prod.isCoffee) {
+                if (rbAddShot.isSelected()) currentPrice += 700;
+                if (cbDecaf.isSelected())   currentPrice += 1500;
+            }
+            priceLabel.setText(String.format("최종 단가: %,d원", currentPrice));
+        };
+        
+        rbNormal.addActionListener(priceUpdater);
+        rbLight.addActionListener(priceUpdater);
+        rbAddShot.addActionListener(priceUpdater);
+        cbDecaf.addActionListener(priceUpdater); // 체크박스에도 리스너 연동!
+
+        // 6. 장바구니 담기 버튼
         JButton btnConfirm = new JButton("장바구니 담기");
+        btnConfirm.setFont(new Font("맑은 고딕", Font.BOLD, 14));
+        btnConfirm.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         btnConfirm.addActionListener(e -> {
             String temperature = rbHot.isSelected() ? "HOT" : "ICE";
             int quantity       = (int) qtySpinner.getValue();
-            basketService.addItem(prod, temperature, quantity);
+            
+            // 기본값 세팅
+            String options = "기본";
+            int finalUnitPrice = prod.price;
+
+            if (prod.isCoffee) {
+                ArrayList<String> selectedOpts = new ArrayList<>();
+                
+                // 1) 샷 옵션 체크
+                if (rbLight.isSelected()) {
+                    selectedOpts.add("연하게");
+                } else if (rbAddShot.isSelected()) {
+                    selectedOpts.add("샷추가");
+                    finalUnitPrice += 700;
+                }
+
+                // 2) 디카페인 옵션 체크 (독립적 추가 가능)
+                if (cbDecaf.isSelected()) {
+                    selectedOpts.add("디카페인");
+                    finalUnitPrice += 1500;
+                }
+
+                // 선택된 옵션이 있다면 문자열 합치기 (예: "샷추가, 디카페인")
+                if (!selectedOpts.isEmpty()) {
+                    options = String.join(", ", selectedOpts);
+                }
+            }
+
+            // 서비스단으로 데이터 전송
+            basketService.addItem(prod, temperature, options, quantity, finalUnitPrice);
             refreshBasket();
             dialog.dispose();
         });
 
-        dialog.add(tempPanel);
-        dialog.add(qtyPanel);
-        dialog.add(priceLabel);
-        dialog.add(btnConfirm);
+        // 메인 패널에 순서대로 정렬해서 배치 (절대 안 겹침!)
+        mainWrapper.add(tempPanel);
+        mainWrapper.add(shotPanel);
+        mainWrapper.add(decafPanel);
+        mainWrapper.add(qtyPanel);
+        mainWrapper.add(Box.createVerticalStrut(10)); // 마진 공간 확보
+        mainWrapper.add(priceLabel);
+        mainWrapper.add(Box.createVerticalStrut(10));
+        mainWrapper.add(btnConfirm);
+
+        dialog.add(mainWrapper);
         dialog.setVisible(true);
     }
 
