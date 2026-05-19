@@ -244,7 +244,8 @@ public class CafeDAO {
                     String customerText = (phone == null) ? "비회원"
                             : (memberName == null) ? phone
                             : memberName + " / " + phone;
-
+                    
+                    sb.append("-------------------------------------------------\n");
                     sb.append(String.format("[주문번호 %d] %s\n고객: %s\n총액: %,d원\n",
                             orderId, rs.getTimestamp("order_date"),
                             customerText, rs.getInt("total_price")));

@@ -288,7 +288,7 @@ public class MainFrame extends JFrame {
     }
 
     private void handleMemberCheck() {
-        String phone = phoneField.getText().trim();
+        String phone = phoneField.getText().replace(" ", "").replace("-", "");
         if (phone.isEmpty()) {
             JOptionPane.showMessageDialog(this, "전화번호를 입력해 주세요.");
             return;
@@ -378,16 +378,15 @@ public class MainFrame extends JFrame {
 
         JTextArea historyArea = new JTextArea(dao.getOrderHistoryText());
         historyArea.setEditable(false);
-        historyArea.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
+        historyArea.setFont(new Font("맑은 고딕", Font.BOLD, 14));
 
-        JButton btnRefresh = new JButton("새로고침");
-        btnRefresh.addActionListener(e -> historyArea.setText(dao.getOrderHistoryText()));
+       
 
         JButton btnClose = new JButton("닫기");
         btnClose.addActionListener(e -> dialog.dispose());
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        btnPanel.add(btnRefresh);
+      
         btnPanel.add(btnClose);
 
         dialog.add(new JScrollPane(historyArea), BorderLayout.CENTER);
