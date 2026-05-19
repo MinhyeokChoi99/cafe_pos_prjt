@@ -10,7 +10,10 @@ public class BasketService {
     public ArrayList<BasketItem> getItems() {
         return items;
     }
+<<<<<<< HEAD
     
+=======
+>>>>>>> origin/master
     // 🌟 파라미터에 options와 옵션가가 더해진 finalUnitPrice를 추가로 받습니다.
     public void addItem(ProductDTO prod, String temperature, String options, int quantity, int finalUnitPrice) {
         
