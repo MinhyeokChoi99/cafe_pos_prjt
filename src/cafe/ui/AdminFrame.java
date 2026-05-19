@@ -36,7 +36,8 @@ public class AdminFrame extends JDialog {
     private JPanel buildSalesPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createTitledBorder("매출 비교"));
-
+        
+        // salesArea에 금일 매출 전일 매출 집어넣기 + 금일 가장 잘 팔린 메뉴 확인하기(판매수량 기준)
         JTextArea salesArea = new JTextArea("[오늘 vs 어제 매출 정산] 버튼을 누르면 매출이 조회됩니다.");
         salesArea.setEditable(false);
         salesArea.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
