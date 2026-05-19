@@ -5,6 +5,7 @@ import cafe.model.ProductDTO;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.List;
 
 public class CafeDAO {
     private final String url = "jdbc:mysql://localhost:3306/cafe_pos";
@@ -265,5 +266,25 @@ public class CafeDAO {
             e.printStackTrace();
             return "주문 내역 조회 중 오류가 발생했습니다. DB 상태를 확인하세요.";
         }
+    }
+    
+    public List<String> getMenuNames() {
+        List<String> menuNames = new ArrayList<>();
+
+        String sql = "SELECT prod_name FROM product ORDER BY prod_name";
+
+        try (
+            Connection conn = getConnection();
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            ResultSet rs = pstmt.executeQuery()
+        ) {
+            while (rs.next()) {
+                menuNames.add(rs.getString("prod_name"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return menuNames;
     }
 }
