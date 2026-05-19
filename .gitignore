@@ -9,6 +9,8 @@ out/
 .settings/
 
 *.class 
+bin/
+out/
 
 
 
