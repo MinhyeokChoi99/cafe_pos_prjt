@@ -36,7 +36,8 @@ public class AdminFrame extends JDialog {
     private JPanel buildSalesPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createTitledBorder("매출 비교"));
-
+        
+        // salesArea에 금일 매출 전일 매출 집어넣기 + 금일 가장 잘 팔린 메뉴 확인하기(판매수량 기준)
         JTextArea salesArea = new JTextArea("[오늘 vs 어제 매출 정산] 버튼을 누르면 매출이 조회됩니다.");
         salesArea.setEditable(false);
         salesArea.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
@@ -68,29 +69,32 @@ public class AdminFrame extends JDialog {
         JPanel panel = new JPanel(new FlowLayout());
         panel.setBorder(BorderFactory.createTitledBorder("재고 수정"));
 
-        JTextField menuNameField = new JTextField(12);
+        JComboBox<String> menuComboBox = new JComboBox<>();
         JSpinner stockSpinner    = new JSpinner(new SpinnerNumberModel(0, 0, 9999, 1));
         JButton btnUpdate        = new JButton("재고 수정");
+        
+        for(String menu : dao.getMenuNames()) {
+        	menuComboBox.addItem(menu);
+        }
 
+        
+        
         btnUpdate.addActionListener(e -> {
-            String name = menuNameField.getText().trim();
+            String name = (String) menuComboBox.getSelectedItem();
             int stock   = (int) stockSpinner.getValue();
+            stockSpinner.setValue(0);
 
-            if (name.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "메뉴명을 입력하세요.");
-                return;
-            }
+           
+            
 
             if (dao.updateStockByMenuName(name, stock)) {
                 JOptionPane.showMessageDialog(this, "[" + name + "] 재고가 " + stock + "개로 수정되었습니다.");
                 mainFrame.loadMenuButtons(); // 메뉴판 즉시 갱신
-            } else {
-                JOptionPane.showMessageDialog(this, "존재하지 않는 메뉴명입니다.");
             }
         });
 
         panel.add(new JLabel("메뉴명:"));
-        panel.add(menuNameField);
+        panel.add(menuComboBox);
         panel.add(new JLabel("재고:"));
         panel.add(stockSpinner);
         panel.add(btnUpdate);
