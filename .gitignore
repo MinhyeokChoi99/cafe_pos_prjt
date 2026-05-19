@@ -8,6 +8,4 @@ out/
 .project
 .settings/
 
-# Java compiled files
-*.class
-bin/
+
