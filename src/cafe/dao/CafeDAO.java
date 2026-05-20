@@ -285,8 +285,79 @@ public class CafeDAO {
         return menuNames;
     }
 
+    // 오늘 판매량 TOP 3 메뉴
+    public List<String> getTopMenusToday() {
+        List<String> result = new ArrayList<>();
+        String sql = """
+                SELECT p.prod_name, SUM(oi.quantity) AS total_qty
+                FROM order_item oi
+                JOIN orders o  ON oi.order_id = o.order_id
+                JOIN product p ON oi.prod_id  = p.prod_id
+                WHERE DATE(o.order_date) = CURDATE()
+                GROUP BY p.prod_name
+                ORDER BY total_qty DESC
+                LIMIT 3
+                """;
+
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            int rank = 1;
+            while (rs.next()) {
+                result.add(rank + "위: " + rs.getString("prod_name")
+                        + " (" + rs.getInt("total_qty") + "잔)");
+                rank++;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    // 이번 주 누적 매출
+    public int getWeeklySales() {
+        String sql = """
+                SELECT COALESCE(SUM(total_price), 0)
+                FROM orders
+                WHERE YEARWEEK(order_date, 1) = YEARWEEK(NOW(), 1)
+                """;
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    // 이번 주 최고 매출일
+    public String getBestDayThisWeek() {
+        String sql = """
+                SELECT DATE(order_date) AS day, SUM(total_price) AS daily_total
+                FROM orders
+                WHERE YEARWEEK(order_date, 1) = YEARWEEK(NOW(), 1)
+                GROUP BY DATE(order_date)
+                ORDER BY daily_total DESC
+                LIMIT 1
+                """;
+
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getString("day")
+                        + " (" + String.format("%,d", rs.getInt("daily_total")) + "원)";
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "데이터 없음";
+    }
+
     // 시간대별 주문 건수 조회 (아침 06~11시 / 점심 11~17시 / 저녁 17~22시)
-    // 반환: int[] { 아침 건수, 점심 건수, 저녁 건수 }
     public int[] getOrderCountByTimeSlot(String dateStr) {
         String sql = "SELECT " +
                 "SUM(CASE WHEN HOUR(order_date) >= 6  AND HOUR(order_date) < 11 THEN 1 ELSE 0 END) AS morning, " +
@@ -309,7 +380,6 @@ public class CafeDAO {
     }
 
     // 월별 매출 조회 (특정 연도의 1~12월 매출 합계)
-    // 반환: int[12] — 인덱스 0 = 1월, 인덱스 11 = 12월
     public int[] getMonthlySales(int year) {
         String sql = "SELECT MONTH(order_date) AS month, COALESCE(SUM(total_price), 0) AS total " +
                 "FROM orders WHERE YEAR(order_date) = ? GROUP BY MONTH(order_date)";
@@ -329,5 +399,4 @@ public class CafeDAO {
         }
         return result;
     }
-
 }

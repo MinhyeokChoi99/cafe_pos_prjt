@@ -7,6 +7,8 @@ import javax.swing.border.TitledBorder;
 import javax.swing.JFormattedTextField;
 import java.awt.*;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.ArrayList;
 
 /**
  * 관리자 모드 다이얼로그.
@@ -30,15 +32,69 @@ public class AdminFrame extends JDialog {
         this.dao = dao;
         this.mainFrame = owner;
 
-        setSize(580, 600);
+        setSize(580, 800);
         setLocationRelativeTo(owner);
         getContentPane().setBackground(COLOR_BG);
-        setLayout(new GridLayout(3, 1, 10, 10));
+        setLayout(new GridLayout(4, 1, 10, 10));
         ((JPanel) getContentPane()).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
+        add(buildSalesPanel());
         add(buildTimeSlotPanel());
         add(buildMonthlyPanel());
         add(buildStockPanel());
+    }
+
+    // ── 통합 정산 패널 ────────────────────────────────────────────────────
+
+    private JPanel buildSalesPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(COLOR_CARD_BG);
+        panel.setBorder(styledBorder("통합 정산"));
+
+        JTextArea salesArea = new JTextArea("[ 통합 정산 보기 ] 버튼을 누르면 매출이 조회됩니다.");
+        salesArea.setEditable(false);
+        salesArea.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
+        salesArea.setBackground(COLOR_CARD_BG);
+        salesArea.setForeground(COLOR_TEXT);
+
+        JButton btnCalcSales = styledButton("통합 정산 보기");
+        btnCalcSales.addActionListener(e -> {
+            String today     = LocalDate.now().toString();
+            String yesterday = LocalDate.now().minusDays(1).toString();
+
+            int todaySales     = dao.getSalesByDate(today);
+            int yesterdaySales = dao.getSalesByDate(yesterday);
+            int diff           = todaySales - yesterdaySales;
+
+            int weeklySales       = dao.getWeeklySales();
+            String bestDay        = dao.getBestDayThisWeek();
+            List<String> topMenus = dao.getTopMenusToday();
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("[ 오늘 vs 어제 매출 ]\n");
+            sb.append(String.format("어제: %,d원%n오늘: %,d원%n", yesterdaySales, todaySales));
+            sb.append(String.format("매출 변동: %s %,d원%n", diff >= 0 ? "증가" : "감소", Math.abs(diff)));
+
+            sb.append("\n──────────────────────────────\n");
+            sb.append("[ 이번 주 통계 ]\n");
+            sb.append(String.format("이번 주 누적 매출: %,d원%n", weeklySales));
+            sb.append("이번 주 최고 매출일: ").append(bestDay).append("\n");
+
+            sb.append("\n──────────────────────────────\n");
+            sb.append("[ 오늘 판매량 TOP 3 ]\n");
+            if (topMenus.isEmpty()) {
+                sb.append("오늘 판매 데이터가 없습니다.\n");
+            } else {
+                for (String menu : topMenus)
+                    sb.append(menu).append("\n");
+            }
+
+            salesArea.setText(sb.toString());
+        });
+
+        panel.add(new JScrollPane(salesArea), BorderLayout.CENTER);
+        panel.add(btnCalcSales, BorderLayout.SOUTH);
+        return panel;
     }
 
     // ── 시간대별 주문 건수 패널 ───────────────────────────────────────────
