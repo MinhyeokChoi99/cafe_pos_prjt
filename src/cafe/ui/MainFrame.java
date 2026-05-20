@@ -38,16 +38,18 @@ public class MainFrame extends JFrame {
     private JTextArea basketArea;
     private JLabel   totalLabel;
     private JTextField phoneField;
+    private JLabel   memberStatusLabel;
     private java.time.LocalDate currentTargetDate;
     
     public MainFrame() {
         setTitle("카페 POS 시스템");
-        setSize(950, 650);
+        setSize(950, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
         getContentPane().setBackground(COLOR_BG); // 메인 전체 배경색 적용
 
+        add(buildHeaderPanel(),  BorderLayout.NORTH);
         // 🌟 buildMenuPanel에서 ScrollPane을 반환하므로 그대로 붙여주면 됨!
         add(buildMenuPanel(),   BorderLayout.WEST);
         add(buildCenterPanel(), BorderLayout.CENTER);
@@ -57,6 +59,26 @@ public class MainFrame extends JFrame {
     }
 
     // ── 패널 빌더 ─────────────────────────────────────────────────────────
+
+    private JPanel buildHeaderPanel() {
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(COLOR_MAIN);
+        header.setPreferredSize(new Dimension(0, 62));
+        header.setBorder(BorderFactory.createEmptyBorder(0, 20, 0, 20));
+
+        JLabel titleLabel = new JLabel("🌸 BANAPRESSO");
+        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 24));
+        titleLabel.setForeground(Color.WHITE);
+
+        memberStatusLabel = new JLabel("비회원 주문");
+        memberStatusLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 13));
+        memberStatusLabel.setForeground(new Color(255, 220, 228));
+        memberStatusLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+
+        header.add(titleLabel,       BorderLayout.WEST);
+        header.add(memberStatusLabel, BorderLayout.EAST);
+        return header;
+    }
 
     private JComponent buildMenuPanel() {
         menuPanel = new JPanel();
@@ -285,11 +307,21 @@ public class MainFrame extends JFrame {
                 }
                 
             } else {
-                imgLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                imgLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+                itemCard.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                itemCard.addMouseListener(new java.awt.event.MouseAdapter() {
                     @Override
                     public void mouseClicked(java.awt.event.MouseEvent e) {
                         showOrderDialog(prod);
+                    }
+                    @Override
+                    public void mouseEntered(java.awt.event.MouseEvent e) {
+                        itemCard.setBackground(new Color(255, 240, 244));
+                        itemCard.setBorder(BorderFactory.createLineBorder(COLOR_MAIN, 2, true));
+                    }
+                    @Override
+                    public void mouseExited(java.awt.event.MouseEvent e) {
+                        itemCard.setBackground(COLOR_CARD_BG);
+                        itemCard.setBorder(BorderFactory.createLineBorder(COLOR_BORDER, 1, true));
                     }
                 });
             }
@@ -311,15 +343,27 @@ public class MainFrame extends JFrame {
         btn.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
 
         if (isPrimary) {
-            btn.setBackground(COLOR_MAIN);
+            Color normalBg  = COLOR_MAIN;
+            Color hoverBg   = new Color(210, 60, 90);
+            btn.setBackground(normalBg);
             btn.setForeground(Color.WHITE);
+            btn.addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override public void mouseEntered(java.awt.event.MouseEvent e) { btn.setBackground(hoverBg); }
+                @Override public void mouseExited (java.awt.event.MouseEvent e) { btn.setBackground(normalBg); }
+            });
         } else {
-            btn.setBackground(COLOR_CARD_BG);
+            Color normalBg  = COLOR_CARD_BG;
+            Color hoverBg   = new Color(255, 230, 235);
+            btn.setBackground(normalBg);
             btn.setForeground(COLOR_MAIN);
             btn.setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createLineBorder(COLOR_BORDER, 1, true),
                     BorderFactory.createEmptyBorder(7, 14, 7, 14)
             ));
+            btn.addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override public void mouseEntered(java.awt.event.MouseEvent e) { btn.setBackground(hoverBg); }
+                @Override public void mouseExited (java.awt.event.MouseEvent e) { btn.setBackground(normalBg); }
+            });
         }
         return btn;
     }
@@ -489,6 +533,7 @@ public class MainFrame extends JFrame {
 
         if (stamp != -1) {
             memberService.setCurrentMember(phone, stamp);
+            memberStatusLabel.setText("★ " + phone + "  |  스탬프 " + stamp + "개");
             JOptionPane.showMessageDialog(this, "회원 확인 완료\n현재 스탬프: " + stamp + "개");
             return;
         }
@@ -571,6 +616,7 @@ public class MainFrame extends JFrame {
             refreshBasket();
             phoneField.setText("");
             memberService.clearCurrentMember();
+            memberStatusLabel.setText("비회원 주문");
             loadMenuButtons();
         } else {
             JOptionPane.showMessageDialog(this, "결제 처리 실패. DB 연결 또는 재고를 확인하세요.");
