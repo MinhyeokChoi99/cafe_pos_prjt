@@ -200,17 +200,89 @@ public class MainFrame extends JFrame {
             }
 
             // 2. 텍스트 정보 라벨 세팅
-            String menuInfo = String.format("<html><center><b style='color:#333333;'>%s</b><br><font color='#E85A71'><b>%,d원</b></font><br><font color='#888888'>재고 %d</font></center></html>",
-                    prod.name, prod.price, prod.stock);
+            String menuInfo;
+            if (prod.isSoldOut()) {
+                // 🌟 [1단계] 완전히 품절
+                menuInfo = String.format(
+                        "<html><center><b style='color:#333333;'>%s</b><br>" +
+                        "<font color='#E85A71'><b>%,d원</b></font></center></html>",
+                        prod.name, prod.price
+                );
+            } else if (prod.stock <= 10) {
+                // 🌟 [2단계] 재고가 1개 이상 ~ 10개 이하일 때만 진짜 "품절임박"
+                menuInfo = String.format(
+                        "<html><center><b style='color:#333333;'>%s</b><br>" +
+                        "<font color='#E85A71'><b>%,d원</b></font><br>" +
+                        "<font color='#e0486b'><b>재고 %d개</b></font></center></html>",
+                        prod.name, prod.price, prod.stock
+                );
+            } else {
+                // 🌟 [3단계] 재고가 11개 이상
+                menuInfo = String.format(
+                        "<html><center><b style='color:#333333;'>%s</b><br>" +
+                        "<font color='#E85A71'><b>%,d원</b></font></center></html>",
+                        prod.name, prod.price
+                );
+            }
+            
             JLabel infoLabel = new JLabel(menuInfo, SwingConstants.CENTER);
             infoLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 13));
 
             // 3. 품절 여부에 따른 이벤트 처리 및 스타일링
             if (prod.isSoldOut()) {
-                imgLabel.setOpaque(true);
-                imgLabel.setBackground(new Color(240, 220, 225)); // 품절 시 톤 다운된 핑크그레이
-                imgLabel.setText("<html><font color='#CC3344'><b>[품절]</b></font></html>");
+                // 기존의 불투명 설정을 끄고, 이미지 위에 그래픽을 직접 그리는 특수 라벨로 재정의!
+                imgLabel = new JLabel("", SwingConstants.CENTER) {
+                    @Override
+                    protected void paintComponent(Graphics g) {
+                        // 1) 배경에 원래 음료 이미지를 먼저 그립니다.
+                        super.paintComponent(g);
+                        
+                        // 2) 이미지 위에 한 겹 얹을 반투명 레이어를 세팅합니다.
+                        Graphics2D g2 = (Graphics2D) g.create();
+                        // 그래픽 테두리를 부드럽게 깎아주는 안티앨리어싱 활성화
+                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        
+                        // 3) 사진 전체를 아주 살짝 투명한 검은색 톤으로 덮어 음료를 톤다운시킵니다. (RGB, 알파값)
+                        g2.setColor(new Color(0, 0, 0, 40)); 
+                        g2.fillRect(0, 0, getWidth(), getHeight());
+                        
+                        // 4) 윤탱이가 보내준 사진 속 '품절 뱃지' 그리기
+                        int badgeWidth = 100;
+                        int badgeHeight = 45;
+                        int badgeX = (getWidth() - badgeWidth) / 2;
+                        int badgeY = (getHeight() - badgeHeight) / 2;
+                        
+                        // 바나프레소 딥핑크색에 반투명 알파값(180)을 섞은 뱃지 배경색
+                        g2.setColor(new Color(COLOR_MAIN.getRed(), COLOR_MAIN.getGreen(), COLOR_MAIN.getBlue(), 180));
+                        g2.fillRoundRect(badgeX, badgeY, badgeWidth, badgeHeight, 25, 25); // 모서리를 둥글게 가공
+                        
+                        // 5) 뱃지 중앙에 흰색 [품절] 글자 얹기
+                        g2.setColor(Color.WHITE);
+                        g2.setFont(new Font("맑은 고딕", Font.BOLD, 16));
+                        
+                        // 폰트의 정확한 중앙 정렬을 위한 폰트 메트릭스 계산 구문
+                        FontMetrics fm = g2.getFontMetrics();
+                        int textX = (getWidth() - fm.stringWidth("품절")) / 2;
+                        int textY = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                        
+                        g2.drawString("품절", textX, textY);
+                        g2.dispose();
+                    }
+                };
+                
+                // 품절 카드의 아래 텍스트 영역 배경색도 자연스러운 톤으로 매칭
                 itemCard.setBackground(new Color(250, 245, 245));
+                
+                // ⚠️ 다시 한 번 이미지를 로드해 주어야 paintComponent 안의 super.paintComponent(g)가 원본 사진을 베이스로 그려줘!
+                try {
+                    String imgPath = "img/" + prod.prodId + ".jpg";
+                    ImageIcon rawIcon = new ImageIcon(imgPath);
+                    Image scaledImg = rawIcon.getImage().getScaledInstance(130, 130, Image.SCALE_SMOOTH);
+                    imgLabel.setIcon(new ImageIcon(scaledImg));
+                } catch (Exception e) {
+                    imgLabel.setText("☕ 사진 없음");
+                }
+                
             } else {
                 imgLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
                 imgLabel.addMouseListener(new java.awt.event.MouseAdapter() {
