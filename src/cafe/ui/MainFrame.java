@@ -39,6 +39,7 @@ public class MainFrame extends JFrame {
     private JLabel   totalLabel;
     private JTextField phoneField;
     private java.time.LocalDate currentTargetDate;
+    
     public MainFrame() {
         setTitle("카페 POS 시스템");
         setSize(950, 650);
@@ -98,7 +99,7 @@ public class MainFrame extends JFrame {
 
         basketArea = new JTextArea();
         basketArea.setEditable(false);
-        basketArea.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
+        basketArea.setFont(new Font("맑은 고딕", Font.BOLD, 18));
         basketArea.setBackground(COLOR_CARD_BG);
         basketArea.setForeground(COLOR_TEXT_DARK);
         
