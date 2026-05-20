@@ -20,7 +20,7 @@ import java.util.ArrayList;
 public class MainFrame extends JFrame {
     // ── 공유 DAO (service들과 같은 인스턴스 사용) ──────────────────────────
     private final CafeDAO       dao            = new CafeDAO();
-
+    
     // ── Service ───────────────────────────────────────────────────────────
     private final BasketService  basketService  = new BasketService();
     private final MemberService  memberService  = new MemberService(dao);
@@ -38,7 +38,7 @@ public class MainFrame extends JFrame {
     private JTextArea basketArea;
     private JLabel   totalLabel;
     private JTextField phoneField;
-
+    private java.time.LocalDate currentTargetDate;
     public MainFrame() {
         setTitle("카페 POS 시스템");
         setSize(950, 650);
@@ -488,27 +488,64 @@ public class MainFrame extends JFrame {
     // ── 다이얼로그 열기 ───────────────────────────────────────────────────
 
     private void openOrderHistoryDialog() {
+    	currentTargetDate = java.time.LocalDate.now();
         JDialog dialog = new JDialog(this, "주문 내역", true);
         dialog.setSize(620, 520);
         dialog.setLocationRelativeTo(this);
         dialog.setLayout(new BorderLayout(10, 10));
+        dialog.getContentPane().setBackground(COLOR_BG);
+        
+        
+        JPanel dateControlPanel = new JPanel(new BorderLayout(10, 10));
+        dateControlPanel.setBackground(COLOR_BG);
+        dateControlPanel.setBorder(BorderFactory.createEmptyBorder(10, 15, 5, 15));
 
-        JTextArea historyArea = new JTextArea(dao.getOrderHistoryText());
+        JButton btnPrev = createStyledButton("◀ 어제", false);
+        JButton btnNext = createStyledButton("내일 ▶", false);
+        
+        JLabel dateLabel = new JLabel(currentTargetDate.toString(), SwingConstants.CENTER);
+        dateLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
+        dateLabel.setForeground(COLOR_MAIN);
+
+        dateControlPanel.add(btnPrev, BorderLayout.WEST);
+        dateControlPanel.add(dateLabel, BorderLayout.CENTER);
+        dateControlPanel.add(btnNext, BorderLayout.EAST);
+        
+        
+        JTextArea historyArea = new JTextArea(dao.getOrderHistoryText(currentTargetDate.toString()));
         historyArea.setEditable(false);
         historyArea.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
+        historyArea.setBackground(COLOR_CARD_BG);
+        historyArea.setForeground(COLOR_TEXT_DARK);
 
-        JButton btnRefresh = createStyledButton("새로고침", false);
-        btnRefresh.addActionListener(e -> historyArea.setText(dao.getOrderHistoryText()));
+        JScrollPane scrollPane = new JScrollPane(historyArea);
+        scrollPane.setBorder(BorderFactory.createLineBorder(COLOR_BORDER, 1));
+        dialog.add(scrollPane, BorderLayout.CENTER);
 
+        // ◀ 어제 버튼 이벤트 바인딩 (하루 차감 후 리로드)
+        btnPrev.addActionListener(e -> {
+            currentTargetDate = currentTargetDate.minusDays(1);
+            dateLabel.setText(currentTargetDate.toString());
+            historyArea.setText(dao.getOrderHistoryText(currentTargetDate.toString()));
+        });
+
+        // 내일 ▶ 버튼 이벤트 바인딩 (하루 증량 후 리로드)
+        btnNext.addActionListener(e -> {
+            currentTargetDate = currentTargetDate.plusDays(1);
+            dateLabel.setText(currentTargetDate.toString());
+            historyArea.setText(dao.getOrderHistoryText(currentTargetDate.toString()));
+        });
+
+        // 하단: 닫기 액션 버튼 배치
         JButton btnClose = createStyledButton("닫기", true);
         btnClose.addActionListener(e -> dialog.dispose());
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         btnPanel.setBackground(COLOR_BG);
-        btnPanel.add(btnRefresh);
+        btnPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 15));
         btnPanel.add(btnClose);
 
-        dialog.add(new JScrollPane(historyArea), BorderLayout.CENTER);
+        dialog.add(dateControlPanel, BorderLayout.NORTH);
         dialog.add(btnPanel, BorderLayout.SOUTH);
         dialog.setVisible(true);
     }
