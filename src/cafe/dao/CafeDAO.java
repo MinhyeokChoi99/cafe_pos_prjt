@@ -4,6 +4,7 @@ import cafe.model.BasketItem;
 import cafe.model.ProductDTO;
 
 import java.sql.*;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -212,7 +213,8 @@ public class CafeDAO {
     }
 
     // 전체 주문 내역 조회
-    public String getOrderHistoryText() {
+ // 🌟 [추가] 특정 날짜(yyyy-MM-dd) 하루치의 주문 내역만 선택 조회하는 메서드
+    public String getOrderHistoryText(String dateStr) {
         String sql = """
                 SELECT
                     o.order_id, o.order_date, o.total_price, o.mem_phone,
@@ -223,6 +225,7 @@ public class CafeDAO {
                 LEFT JOIN member m    ON o.mem_phone = m.mem_phone
                 JOIN order_item oi    ON o.order_id  = oi.order_id
                 JOIN product p        ON oi.prod_id  = p.prod_id
+                WHERE DATE(o.order_date) = ?
                 ORDER BY o.order_id DESC, oi.order_item_id
                 """;
 
@@ -230,35 +233,39 @@ public class CafeDAO {
         int currentOrderId = -1;
 
         try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql);
-             ResultSet rs = pstmt.executeQuery()) {
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            while (rs.next()) {
-                int orderId = rs.getInt("order_id");
+            pstmt.setString(1, dateStr);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    int orderId = rs.getInt("order_id");
 
-                if (orderId != currentOrderId) {
-                    currentOrderId = orderId;
-                    if (sb.length() > 0) sb.append("\n");
+                    if (orderId != currentOrderId) {
+                        currentOrderId = orderId;
+                        if (sb.length() > 0) sb.append("\n");
 
-                    String phone      = rs.getString("mem_phone");
-                    String memberName = rs.getString("mem_name");
-                    String customerText = (phone == null) ? "비회원"
-                            : (memberName == null) ? phone
-                            : memberName + " / " + phone;
-                    
-                    sb.append("--------------------------------------\n");
-                    sb.append(String.format("[주문번호 %d] %s\n고객: %s\n총액: %,d원\n",
-                            orderId, rs.getTimestamp("order_date"),
-                            customerText, rs.getInt("total_price")));
+                        String phone      = rs.getString("mem_phone");
+                        String memberName = rs.getString("mem_name");
+                        String customerText = (phone == null) ? "비회원"
+                                : (memberName == null) ? phone
+                                : memberName + " / " + phone;
+
+                        sb.append("--------------------------------------\n");
+                        sb.append(String.format("[주문번호 %d] %s\n고객: %s\n총액: %,d원\n",
+                                orderId, rs.getTimestamp("order_date").toLocalDateTime()
+                                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
+                                customerText, rs.getInt("total_price")));
+                    }
+
+                    sb.append(String.format("  - %s / %s / %d잔 / %,d원 x %d = %,d원\n",
+                            rs.getString("prod_name"), rs.getString("temperature"),
+                            rs.getInt("quantity"), rs.getInt("unit_price"),
+                            rs.getInt("quantity"), rs.getInt("item_total")));
                 }
-
-                sb.append(String.format("  - %s / %s / %d잔 / %,d원 x %d = %,d원\n",
-                        rs.getString("prod_name"), rs.getString("temperature"),
-                        rs.getInt("quantity"), rs.getInt("unit_price"),
-                        rs.getInt("quantity"), rs.getInt("item_total")));
             }
 
-            return sb.length() == 0 ? "조회된 주문 내역이 없습니다." : sb.toString();
+            return sb.length() == 0 ? dateStr + " 일자의 주문 내역이 없습니다." : sb.toString();
         } catch (SQLException e) {
             e.printStackTrace();
             return "주문 내역 조회 중 오류가 발생했습니다. DB 상태를 확인하세요.";
