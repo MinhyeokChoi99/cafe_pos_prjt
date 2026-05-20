@@ -34,28 +34,48 @@ public class MainFrame extends JFrame {
     private final Color COLOR_TEXT_DARK= new Color(60, 60, 60);    // 다크 그레이 텍스트
 
     // ── UI 컴포넌트 ────────────────────────────────────────────────────────
-    private JPanel   menuPanel;
-    private JTextArea basketArea;
-    private JLabel   totalLabel;
-    private JTextField phoneField;
+    private JPanel      menuPanel;
+    private JTextArea   basketArea;
+    private JLabel      totalLabel;
+    private JTextField  phoneField;
+    private JLabel      memberStatusLabel;
 
     public MainFrame() {
         setTitle("카페 POS 시스템");
-        setSize(950, 650);
+        setSize(950, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
-        getContentPane().setBackground(COLOR_BG); // 메인 전체 배경색 적용
+        getContentPane().setBackground(COLOR_BG);
 
-        // 🌟 buildMenuPanel에서 ScrollPane을 반환하므로 그대로 붙여주면 됨!
-        add(buildMenuPanel(),   BorderLayout.WEST);
-        add(buildCenterPanel(), BorderLayout.CENTER);
-        add(buildSouthPanel(),  BorderLayout.SOUTH);
+        add(buildHeaderPanel(),  BorderLayout.NORTH);
+        add(buildMenuPanel(),    BorderLayout.WEST);
+        add(buildCenterPanel(),  BorderLayout.CENTER);
+        add(buildSouthPanel(),   BorderLayout.SOUTH);
 
         setVisible(true);
     }
 
     // ── 패널 빌더 ─────────────────────────────────────────────────────────
+
+    private JPanel buildHeaderPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(COLOR_MAIN);
+        panel.setPreferredSize(new Dimension(0, 62));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+
+        JLabel titleLabel = new JLabel("☕ BANAPRESSO");
+        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 26));
+        titleLabel.setForeground(Color.WHITE);
+
+        memberStatusLabel = new JLabel("비회원 주문");
+        memberStatusLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
+        memberStatusLabel.setForeground(new Color(255, 220, 228));
+
+        panel.add(titleLabel,       BorderLayout.WEST);
+        panel.add(memberStatusLabel, BorderLayout.EAST);
+        return panel;
+    }
 
     private JComponent buildMenuPanel() {
         menuPanel = new JPanel();
@@ -208,15 +228,23 @@ public class MainFrame extends JFrame {
             // 3. 품절 여부에 따른 이벤트 처리 및 스타일링
             if (prod.isSoldOut()) {
                 imgLabel.setOpaque(true);
-                imgLabel.setBackground(new Color(240, 220, 225)); // 품절 시 톤 다운된 핑크그레이
+                imgLabel.setBackground(new Color(240, 220, 225));
                 imgLabel.setText("<html><font color='#CC3344'><b>[품절]</b></font></html>");
                 itemCard.setBackground(new Color(250, 245, 245));
             } else {
-                imgLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                imgLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+                itemCard.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                itemCard.addMouseListener(new java.awt.event.MouseAdapter() {
                     @Override
-                    public void mouseClicked(java.awt.event.MouseEvent e) {
-                        showOrderDialog(prod);
+                    public void mouseClicked(java.awt.event.MouseEvent e) { showOrderDialog(prod); }
+                    @Override
+                    public void mouseEntered(java.awt.event.MouseEvent e) {
+                        itemCard.setBorder(BorderFactory.createLineBorder(COLOR_MAIN, 2, true));
+                        itemCard.setBackground(new Color(255, 245, 247));
+                    }
+                    @Override
+                    public void mouseExited(java.awt.event.MouseEvent e) {
+                        itemCard.setBorder(BorderFactory.createLineBorder(COLOR_BORDER, 1, true));
+                        itemCard.setBackground(COLOR_CARD_BG);
                     }
                 });
             }
@@ -235,19 +263,30 @@ public class MainFrame extends JFrame {
         JButton btn = new JButton(text);
         btn.setFont(new Font("맑은 고딕", Font.BOLD, 14));
         btn.setFocusPainted(false);
-        btn.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
 
+        Color normalBg, hoverBg;
         if (isPrimary) {
-            btn.setBackground(COLOR_MAIN);
+            normalBg = COLOR_MAIN;
+            hoverBg  = new Color(210, 60, 85);
+            btn.setBackground(normalBg);
             btn.setForeground(Color.WHITE);
+            btn.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
         } else {
-            btn.setBackground(COLOR_CARD_BG);
+            normalBg = COLOR_CARD_BG;
+            hoverBg  = new Color(255, 230, 235);
+            btn.setBackground(normalBg);
             btn.setForeground(COLOR_MAIN);
             btn.setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createLineBorder(COLOR_BORDER, 1, true),
                     BorderFactory.createEmptyBorder(7, 14, 7, 14)
             ));
         }
+
+        btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override public void mouseEntered(java.awt.event.MouseEvent e) { btn.setBackground(hoverBg); }
+            @Override public void mouseExited (java.awt.event.MouseEvent e) { btn.setBackground(normalBg); }
+        });
+
         return btn;
     }
 
@@ -416,6 +455,7 @@ public class MainFrame extends JFrame {
 
         if (stamp != -1) {
             memberService.setCurrentMember(phone, stamp);
+            memberStatusLabel.setText("★ " + phone + "  |  스탬프 " + stamp + "개");
             JOptionPane.showMessageDialog(this, "회원 확인 완료\n현재 스탬프: " + stamp + "개");
             return;
         }
@@ -498,6 +538,7 @@ public class MainFrame extends JFrame {
             refreshBasket();
             phoneField.setText("");
             memberService.clearCurrentMember();
+            memberStatusLabel.setText("비회원 주문");
             loadMenuButtons();
         } else {
             JOptionPane.showMessageDialog(this, "결제 처리 실패. DB 연결 또는 재고를 확인하세요.");
