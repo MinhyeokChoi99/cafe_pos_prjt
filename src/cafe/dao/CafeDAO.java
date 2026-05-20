@@ -300,8 +300,8 @@ public class CafeDAO {
                 """;
 
         try (Connection conn = getConnection();
-                PreparedStatement pstmt = conn.prepareStatement(sql);
-                ResultSet rs = pstmt.executeQuery()) {
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
 
             int rank = 1;
             while (rs.next()) {
@@ -344,8 +344,8 @@ public class CafeDAO {
                 """;
 
         try (Connection conn = getConnection();
-                PreparedStatement pstmt = conn.prepareStatement(sql);
-                ResultSet rs = pstmt.executeQuery()) {
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
 
             if (rs.next()) {
                 return rs.getString("day")
@@ -355,5 +355,48 @@ public class CafeDAO {
             e.printStackTrace();
         }
         return "데이터 없음";
+    }
+
+    // 시간대별 주문 건수 조회 (아침 06~11시 / 점심 11~17시 / 저녁 17~22시)
+    public int[] getOrderCountByTimeSlot(String dateStr) {
+        String sql = "SELECT " +
+                "SUM(CASE WHEN HOUR(order_date) >= 6  AND HOUR(order_date) < 11 THEN 1 ELSE 0 END) AS morning, " +
+                "SUM(CASE WHEN HOUR(order_date) >= 11 AND HOUR(order_date) < 17 THEN 1 ELSE 0 END) AS lunch, " +
+                "SUM(CASE WHEN HOUR(order_date) >= 17 AND HOUR(order_date) < 22 THEN 1 ELSE 0 END) AS evening " +
+                "FROM orders WHERE DATE(order_date) = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, dateStr);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new int[]{ rs.getInt("morning"), rs.getInt("lunch"), rs.getInt("evening") };
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return new int[]{0, 0, 0};
+    }
+
+    // 월별 매출 조회 (특정 연도의 1~12월 매출 합계)
+    public int[] getMonthlySales(int year) {
+        String sql = "SELECT MONTH(order_date) AS month, COALESCE(SUM(total_price), 0) AS total " +
+                "FROM orders WHERE YEAR(order_date) = ? GROUP BY MONTH(order_date)";
+
+        int[] result = new int[12];
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, year);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    int month = rs.getInt("month");
+                    result[month - 1] = rs.getInt("total");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return result;
     }
 }
