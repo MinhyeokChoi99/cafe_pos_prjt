@@ -399,13 +399,18 @@ public class MainFrame extends JFrame {
         historyArea.setFont(new Font("Monospaced", Font.BOLD, 13));
 //        historyArea.setFont(new Font("맑은 고딕", Font.PLAIN, 14)); 폰트 변경
 
-
-
+        
+        JButton btnPrevious = new JButton("이전");
         JButton btnClose = new JButton("닫기");
+        JButton btnNext = new JButton("이후");
         btnClose.addActionListener(e -> dialog.dispose());
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        btnPanel.add(btnPrevious);
+        btnPanel.add(btnNext);
         btnPanel.add(btnClose);
+        
+        
 
         dialog.add(new JScrollPane(historyArea), BorderLayout.CENTER);
         dialog.add(btnPanel, BorderLayout.SOUTH);
