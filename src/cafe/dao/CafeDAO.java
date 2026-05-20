@@ -284,4 +284,50 @@ public class CafeDAO {
 
         return menuNames;
     }
+
+    // 시간대별 주문 건수 조회 (아침 06~11시 / 점심 11~17시 / 저녁 17~22시)
+    // 반환: int[] { 아침 건수, 점심 건수, 저녁 건수 }
+    public int[] getOrderCountByTimeSlot(String dateStr) {
+        String sql = "SELECT " +
+                "SUM(CASE WHEN HOUR(order_date) >= 6  AND HOUR(order_date) < 11 THEN 1 ELSE 0 END) AS morning, " +
+                "SUM(CASE WHEN HOUR(order_date) >= 11 AND HOUR(order_date) < 17 THEN 1 ELSE 0 END) AS lunch, " +
+                "SUM(CASE WHEN HOUR(order_date) >= 17 AND HOUR(order_date) < 22 THEN 1 ELSE 0 END) AS evening " +
+                "FROM orders WHERE DATE(order_date) = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, dateStr);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new int[]{ rs.getInt("morning"), rs.getInt("lunch"), rs.getInt("evening") };
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return new int[]{0, 0, 0};
+    }
+
+    // 월별 매출 조회 (특정 연도의 1~12월 매출 합계)
+    // 반환: int[12] — 인덱스 0 = 1월, 인덱스 11 = 12월
+    public int[] getMonthlySales(int year) {
+        String sql = "SELECT MONTH(order_date) AS month, COALESCE(SUM(total_price), 0) AS total " +
+                "FROM orders WHERE YEAR(order_date) = ? GROUP BY MONTH(order_date)";
+
+        int[] result = new int[12];
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, year);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    int month = rs.getInt("month");
+                    result[month - 1] = rs.getInt("total");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
 }
