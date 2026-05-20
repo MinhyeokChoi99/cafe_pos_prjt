@@ -214,6 +214,7 @@ public class CafeDAO {
 
     // 전체 주문 내역 조회
  // 🌟 [추가] 특정 날짜(yyyy-MM-dd) 하루치의 주문 내역만 선택 조회하는 메서드
+ // 🌟 [최종 교체] 스탬프 다회차 할인액 역산 및 총 주문금액/최종 금액 분리 영수증 표출 메서드
     public String getOrderHistoryText(String dateStr) {
         String sql = """
                 SELECT
@@ -230,7 +231,12 @@ public class CafeDAO {
                 """;
 
         StringBuilder sb = new StringBuilder();
+        
+        // 영수증 하단 정산을 주문별로 묶어 처리하기 위한 상태 변수군
+        StringBuilder itemDetailsBuffer = new StringBuilder();
         int currentOrderId = -1;
+        int currentOrderGrossTotal = 0; // 할인 적용 전 순수 메뉴 원금 합계
+        int currentFinalPrice = 0;      // DB 테이블 o.total_price 에 기록된 최종 실결제액
 
         try (Connection conn = getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -241,9 +247,18 @@ public class CafeDAO {
                 while (rs.next()) {
                     int orderId = rs.getInt("order_id");
 
+                    // 1) 새로운 주문번호를 만났을 때 (이전 주문에 쌓인 영수증 데이터가 있다면 출력을 마무리)
                     if (orderId != currentOrderId) {
+                        if (currentOrderId != -1) {
+                            // 🌟 [마감 출력] 이전 주문의 하단 영수증 금액 영역을 결합해 sb에 적재
+                            appendOrderHistoryFooter(sb, itemDetailsBuffer, currentOrderGrossTotal, currentFinalPrice);
+                        }
+
+                        // 신규 주문 상태값 리셋
                         currentOrderId = orderId;
-                        if (sb.length() > 0) sb.append("\n");
+                        currentOrderGrossTotal = 0;
+                        currentFinalPrice = rs.getInt("total_price"); // 이 주문의 실제 마감 결제액 캐싱
+                        itemDetailsBuffer.setLength(0); // 상세 버퍼 비우기
 
                         String phone      = rs.getString("mem_phone");
                         String memberName = rs.getString("mem_name");
@@ -251,17 +266,26 @@ public class CafeDAO {
                                 : (memberName == null) ? phone
                                 : memberName + " / " + phone;
 
-                        sb.append("--------------------------------------\n");
-                        sb.append(String.format("[주문번호 %d] %s\n고객: %s\n총액: %,d원\n",
+                        sb.append("---------------------------------------------------------\n");
+                        sb.append(String.format("[주문번호 %d] %s\n고객: %s\n",
                                 orderId, rs.getTimestamp("order_date").toLocalDateTime()
                                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
-                                customerText, rs.getInt("total_price")));
+                                customerText));
                     }
 
-                    sb.append(String.format("  - %s / %s / %d잔 / %,d원 x %d = %,d원\n",
-                            rs.getString("prod_name"), rs.getString("temperature"),
-                            rs.getInt("quantity"), rs.getInt("unit_price"),
-                            rs.getInt("quantity"), rs.getInt("item_total")));
+                    // 2) 주문 내 개별 음료 상세 품목 라인을 버퍼에 누적
+                    int itemTotal = rs.getInt("item_total");
+                    currentOrderGrossTotal += itemTotal; // 순수 원금 지속 합산
+
+                    itemDetailsBuffer.append(String.format("  - %s     \t%,d원 x %d = %,d원\n",
+                            rs.getString("prod_name"),
+                            rs.getInt("unit_price"),
+                            rs.getInt("quantity"), itemTotal));
+                }
+
+                // 3) 🌟 [매우 중요] 모든 결과 셋을 다 돌고 탈출(while 종료)했을 때, '맨 마지막 주문'의 하단 마감 처리
+                if (currentOrderId != -1) {
+                    appendOrderHistoryFooter(sb, itemDetailsBuffer, currentOrderGrossTotal, currentFinalPrice);
                 }
             }
 
@@ -270,6 +294,21 @@ public class CafeDAO {
             e.printStackTrace();
             return "주문 내역 조회 중 오류가 발생했습니다. DB 상태를 확인하세요.";
         }
+    }
+    // 주문 내역 마지막에 할인금액 최종금액 표시
+    private void appendOrderHistoryFooter(StringBuilder mainSb, StringBuilder detailsBuffer, int grossTotal, int finalPrice) {
+        mainSb.append(detailsBuffer); // 모아둔 음료 리스트를 먼저 메인 텍스트에 부착
+        
+        int couponDiscount = grossTotal - finalPrice; // 순수 원가 합계 - 실제 결제 금액 = 쿠폰 할인 총액 역산
+        
+        mainSb.append("\n");
+        mainSb.append(String.format("\t\t총 주문 금액 %,d원\n", grossTotal));
+        
+        // 쿠폰 할인이 들어간 경우에만 영수증에 '쿠폰 사용' 라인을 노출시킵니다 (비회원이나 미사용 시 숨김)
+        if (couponDiscount > 0) {
+            mainSb.append(String.format("\t\t쿠폰 사용   -%,d원\n", couponDiscount));
+        }
+        mainSb.append(String.format("\t\t최종 금액 %,d원\n", finalPrice));
     }
     
     public List<String> getMenuNames() {
