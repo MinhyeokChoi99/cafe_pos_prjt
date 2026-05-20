@@ -442,24 +442,42 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        int     totalSum      = basketService.calcTotal();
-        int useDiscount   = 0;
-        int     stampToDeduct = 0;
+        int totalSum      = basketService.calcTotal();
+        int discountTimes = 0;
+        int stampToDeduct = 0;
 
-        if (memberService.canUseStampDiscount()) {
-            int choice = JOptionPane.showConfirmDialog(
-                    this,
-                    "스탬프 10개를 사용하여 2,000원 할인받겠습니까?",
-                    "스탬프 할인",
-                    JOptionPane.YES_NO_OPTION
-            );
-            if (choice == JOptionPane.YES_OPTION) {
-                useDiscount   = 1;
-                stampToDeduct = PaymentService.STAMP_DISCOUNT_THRESHOLD;
+        // 스탬프 할인 선택 — JComboBox 드롭다운
+        int maxTimes = paymentService.getMaxDiscountTimes(memberService.getCurrentStamp(), totalSum);
+        if (memberService.isLoggedIn() && maxTimes > 0) {
+            String[] options = new String[maxTimes + 1];
+            options[0] = "사용 안함";
+            for (int i = 1; i <= maxTimes; i++) {
+                options[i] = String.format("%d회  (스탬프 %d개  →  -%,d원)",
+                        i,
+                        i * PaymentService.STAMP_DISCOUNT_THRESHOLD,
+                        i * PaymentService.STAMP_DISCOUNT_AMOUNT);
+            }
+
+            JComboBox<String> combo = new JComboBox<>(options);
+            combo.setFont(new Font("맑은 고딕", Font.PLAIN, 13));
+
+            JPanel panel = new JPanel(new BorderLayout(0, 8));
+            panel.add(new JLabel(String.format(
+                    "<html>보유 스탬프: <b>%d개</b> &nbsp;|&nbsp; 총 주문금액: <b>%,d원</b><br><br>스탬프 10개당 2,000원 할인됩니다.<br>사용할 횟수를 선택하세요:</html>",
+                    memberService.getCurrentStamp(), totalSum)), BorderLayout.NORTH);
+            panel.add(combo, BorderLayout.CENTER);
+
+            int result = JOptionPane.showConfirmDialog(
+                    this, panel, "스탬프 할인",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+            if (result == JOptionPane.OK_OPTION && combo.getSelectedIndex() > 0) {
+                discountTimes = combo.getSelectedIndex();
+                stampToDeduct = discountTimes * PaymentService.STAMP_DISCOUNT_THRESHOLD;
             }
         }
 
-        int finalPrice = paymentService.calcFinalPrice(totalSum, useDiscount);
+        int finalPrice = paymentService.calcFinalPrice(totalSum, discountTimes);
 
         boolean success = paymentService.pay(
                 memberService.getCurrentPhone(),
@@ -471,7 +489,8 @@ public class MainFrame extends JFrame {
 
         if (success) {
             String msg = "주문이 정상 처리되었습니다.\n";
-            if (useDiscount>0) msg += "스탬프 할인 2,000원이 적용되었습니다.\n";
+            if (discountTimes > 0) msg += String.format("스탬프 할인 %,d원이 적용되었습니다.\n",
+                    discountTimes * PaymentService.STAMP_DISCOUNT_AMOUNT);
             msg += String.format("최종 결제 금액: %,d원", finalPrice);
 
             JOptionPane.showMessageDialog(this, msg);
