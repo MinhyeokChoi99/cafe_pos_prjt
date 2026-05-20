@@ -4,6 +4,7 @@ import cafe.model.BasketItem;
 import cafe.model.ProductDTO;
 
 import java.sql.*;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -248,7 +249,8 @@ public class CafeDAO {
                     
                     sb.append("--------------------------------------\n");
                     sb.append(String.format("[주문번호 %d] %s\n고객: %s\n총액: %,d원\n",
-                            orderId, rs.getTimestamp("order_date"),
+                            orderId, rs.getTimestamp("order_date").toLocalDateTime()
+                            .format(DateTimeFormatter.ofPattern("HH:mm:ss")),
                             customerText, rs.getInt("total_price")));
                 }
 

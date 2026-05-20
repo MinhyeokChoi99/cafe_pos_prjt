@@ -406,7 +406,7 @@ public class MainFrame extends JFrame {
     }
 
     private void handleMemberCheck() {
-        String phone = phoneField.getText().trim();
+        String phone = phoneField.getText().replace("-", "").replace(" ","");
         if (phone.isEmpty()) {
             JOptionPane.showMessageDialog(this, "전화번호를 입력해 주세요.");
             return;
