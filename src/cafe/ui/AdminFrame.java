@@ -5,6 +5,8 @@ import cafe.dao.CafeDAO;
 import javax.swing.*;
 import java.awt.*;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.ArrayList;
 
 /**
  * 관리자 모드 다이얼로그.
@@ -36,27 +38,44 @@ public class AdminFrame extends JDialog {
     private JPanel buildSalesPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createTitledBorder("매출 비교"));
-        
-        // salesArea에 금일 매출 전일 매출 집어넣기 + 금일 가장 잘 팔린 메뉴 확인하기(판매수량 기준)
-        JTextArea salesArea = new JTextArea("[오늘 vs 어제 매출 정산] 버튼을 누르면 매출이 조회됩니다.");
+
+        JTextArea salesArea = new JTextArea("[ 통합 정산 보기 ] 버튼을 누르면 매출이 조회됩니다.");
         salesArea.setEditable(false);
         salesArea.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
 
-        JButton btnCalcSales = new JButton("오늘 vs 어제 매출 정산");
+        JButton btnCalcSales = new JButton("통합 정산 보기");
         btnCalcSales.addActionListener(e -> {
-            String today     = LocalDate.now().toString();
+            String today = LocalDate.now().toString();
             String yesterday = LocalDate.now().minusDays(1).toString();
 
-            int todaySales     = dao.getSalesByDate(today);
+            int todaySales = dao.getSalesByDate(today);
             int yesterdaySales = dao.getSalesByDate(yesterday);
-            int diff           = todaySales - yesterdaySales;
+            int diff = todaySales - yesterdaySales;
 
-            salesArea.setText(String.format(
-                    "정산 기준일: %s\n\n어제 총 매출: %,d원\n오늘 현재 매출: %,d원\n%s\n매출 변동: %s %,d원",
-                    today, yesterdaySales, todaySales,
-                    "-".repeat(30),
-                    diff >= 0 ? "증가" : "감소", Math.abs(diff)
-            ));
+            int weeklySales = dao.getWeeklySales();
+            String bestDay = dao.getBestDayThisWeek();
+            List<String> topMenus = dao.getTopMenusToday();
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("[ 오늘 vs 어제 매출 ]\n");
+            sb.append(String.format("어제: %,d원%n오늘: %,d원%n", yesterdaySales, todaySales));
+            sb.append(String.format("매출 변동: %s %,d원%n", diff >= 0 ? "증가" : "감소", Math.abs(diff)));
+
+            sb.append("\n──────────────────────────────\n");
+            sb.append("[ 이번 주 통계 ]\n");
+            sb.append(String.format("이번 주 누적 매출: %,d원%n", weeklySales));
+            sb.append("이번 주 최고 매출일: ").append(bestDay).append("\n");
+
+            sb.append("\n──────────────────────────────\n");
+            sb.append("[ 오늘 판매량 TOP 3 ]\n");
+            if (topMenus.isEmpty()) {
+                sb.append("오늘 판매 데이터가 없습니다.\n");
+            } else {
+                for (String menu : topMenus)
+                    sb.append(menu).append("\n");
+            }
+
+            salesArea.setText(sb.toString());
         });
 
         panel.add(new JScrollPane(salesArea), BorderLayout.CENTER);
