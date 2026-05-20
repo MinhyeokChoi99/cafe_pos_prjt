@@ -284,4 +284,76 @@ public class CafeDAO {
 
         return menuNames;
     }
+
+    // 오늘 판매량 TOP 3 메뉴
+    public List<String> getTopMenusToday() {
+        List<String> result = new ArrayList<>();
+        String sql = """
+                SELECT p.prod_name, SUM(oi.quantity) AS total_qty
+                FROM order_item oi
+                JOIN orders o  ON oi.order_id = o.order_id
+                JOIN product p ON oi.prod_id  = p.prod_id
+                WHERE DATE(o.order_date) = CURDATE()
+                GROUP BY p.prod_name
+                ORDER BY total_qty DESC
+                LIMIT 3
+                """;
+
+        try (Connection conn = getConnection();
+                PreparedStatement pstmt = conn.prepareStatement(sql);
+                ResultSet rs = pstmt.executeQuery()) {
+
+            int rank = 1;
+            while (rs.next()) {
+                result.add(rank + "위: " + rs.getString("prod_name")
+                        + " (" + rs.getInt("total_qty") + "잔)");
+                rank++;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    // 이번 주 누적 매출
+    public int getWeeklySales() {
+        String sql = """
+                SELECT COALESCE(SUM(total_price), 0)
+                FROM orders
+                WHERE YEARWEEK(order_date, 1) = YEARWEEK(NOW(), 1)
+                """;
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    // 이번 주 최고 매출일
+    public String getBestDayThisWeek() {
+        String sql = """
+                SELECT DATE(order_date) AS day, SUM(total_price) AS daily_total
+                FROM orders
+                WHERE YEARWEEK(order_date, 1) = YEARWEEK(NOW(), 1)
+                GROUP BY DATE(order_date)
+                ORDER BY daily_total DESC
+                LIMIT 1
+                """;
+
+        try (Connection conn = getConnection();
+                PreparedStatement pstmt = conn.prepareStatement(sql);
+                ResultSet rs = pstmt.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getString("day")
+                        + " (" + String.format("%,d", rs.getInt("daily_total")) + "원)";
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "데이터 없음";
+    }
 }
